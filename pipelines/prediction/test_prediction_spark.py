@@ -104,3 +104,37 @@ def retrieve_df_from_csv(spark_session, path):
         .option("header", True) \
         .format("csv").load(path)
     return df
+
+def retrieve_df_from_parquet():
+    """
+    전처리된 데이터를 가져오는 함수
+    #todo 추후 구현예정
+    :return:
+    """
+    pass
+
+def change_df_column_names(df, metric):
+    """
+    change column name to host_id, timestamp, avg(value)
+    :return:
+    """
+    if metric == 'cpu':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_cpu_usage').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+    if metric == 'memory':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_memory_usage').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+    if metric == 'network-in':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_network_in_bytes').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+    if metric == 'network-out':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_network_out_bytes').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+    if metric == 'diskio-read':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_read_bytes').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+    if metric == 'diskio-write':
+        df = df.select(F.col('datetime').alias('timestamp'), F.col('mean_write_bytes').alias('avg(value)'),
+                       F.col('host_name').alias('host_id'))
+
+    return df
