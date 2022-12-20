@@ -45,3 +45,34 @@ es = Elasticsearch(hosts=f"http://{es_id}:{es_pw}@{es_host}:{es_port}/", timeout
 
 
 ray.init(num_cpus=2, dashboard_host ='0.0.0.0')
+
+def retrieve_machine_to_predict():
+    """
+    예측할 머신들을 가져오는 함수 ex) vm, pod
+    :return:
+    """
+    return ["vm"]
+
+def retrieve_model_to_predict(db):
+    """
+    예측할 모델을 가져오는 함수
+    metadata api 를 통해 구현
+
+    :param config: metadata 저장 config
+    :return:
+    model to predict : str
+    """
+    sql = "SELECT * FROM T_ALGORITHM"
+    df=pd.read_sql(sql,db)
+    df = df[df['USG_AT']=='Y'][['PVDR_ID','USG_AT','ALGORITHM_NM']]
+    model_dict = {}
+    for index, row in df.iterrows():
+        machine , model = row['PVDR_ID'], row['ALGORITHM_NM']
+        machine = 'vm' if 'openstack' in machine else 'pod'
+        model_dict[machine]= model
+    try:
+        model_dict['vm']
+        model_dict['pod']
+        return model_dict
+    except:
+        return {'vm':'Prophet','pod':'Prophet'}
