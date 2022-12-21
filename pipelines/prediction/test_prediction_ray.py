@@ -76,3 +76,39 @@ def retrieve_model_to_predict(db):
         return model_dict
     except:
         return {'vm':'Prophet','pod':'Prophet'}
+
+def retrieve_selected_model(model_name):
+    """
+    정해진 모델에 따라 model 함수 반환
+    :param model_name:
+    :return:
+    """
+    model = predict_prophet
+    if model_name == 'Prophet':
+        model = predict_prophet
+    if model_name == 'Auto arima':
+        model = predict_arima
+    if model_name == 'Autoreg':
+        model = predict_autoreg
+    return model
+
+
+def retrieve_metrics_to_predict():
+    """
+    예측을 할 변수들을 가져오는 역할을 하는 함수
+    :return: list with variables to predict
+    """
+    # return {"vm": ["cpu","memory","network-in", "network-out", "diskio-write", "diskio-read"],
+    #         "pod": ["cpu", "memory"]}
+    #return {"vm": ["cpu", "memory"]}
+    return {"vm":["cpu"],"pod":[]}
+
+def retrieve_df_from_csv(path):
+    """
+    예측에서 자제적으로 수행한 전처리 데이터를 가져오는 함수
+    :param spark_session: spark session 객체
+    :param path: csv 파일경로
+    :return: df with columns host_id, timestamp, avg(value)
+    """
+    df = pd.read_csv(path)
+    return df
