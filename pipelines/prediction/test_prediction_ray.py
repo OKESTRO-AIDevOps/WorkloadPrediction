@@ -112,3 +112,31 @@ def retrieve_df_from_csv(path):
     """
     df = pd.read_csv(path)
     return df
+
+def retrieve_df_from_parquet():
+    """
+    전처리된 데이터를 가져오는 함수
+    #todo 추후 구현예정
+    :return:
+    """
+    pass
+
+def change_df_column_names(df, metric):
+    """
+    change column name to host_id, timestamp, avg(value)
+    :return:
+    """
+    if metric == 'cpu':
+        df.rename(columns={'datetime':'timestamp', 'mean_cpu_usage':'avg(value)', 'host_name':'host_id'}, inplace=True)
+    if metric == 'memory':
+        df.rename(columns={'datetime':'timestamp', 'mean_memory_usage':'avg(value)', 'host_name':'host_id'}, inplace=True)
+    if metric == 'network-in':
+        df.rename(columns={'datetime':'timestamp', 'mean_network_in_bytes':'avg(value)', 'host_name':'host_id'}, inplace=True)
+    if metric == 'network-out':
+        df.rename(columns={'datetime':'timestamp', 'mean_network_out_bytes':'avg(value)', 'host_name':'host_id'}, inplace=True)
+    if metric == 'diskio-read':
+        df.rename(columns={'datetime':'timestamp', 'mean_read_bytes':'avg(value)', 'host_name':'host_id'}, inplace=True)
+    if metric == 'diskio-write':
+        df.rename(columns={'datetime':'timestamp', 'mean_write_bytes':'avg(value)', 'host_name':'host_id'}, inplace=True)
+
+    return df
