@@ -62,3 +62,41 @@ def decomposition_pipeline(cpu_request :str="4000m",
                                             .set_memory_request(memory_request)\
                                             .add_pvolumes({mount_path: vop})\
                                             .after(decomposition_vm_disk_write)
+
+    decomposition_vm_network_in = decomposition_component('vm', 'network-in', host_thr).set_cpu_limit(cpu_limit)\
+                                            .set_memory_limit(memory_limit)\
+                                            .set_cpu_request(cpu_request)\
+                                            .set_memory_request(memory_request)\
+                                            .add_pvolumes({mount_path: vop})\
+                                            .after(decomposition_vm_disk_read)
+
+    decomposition_vm_network_out = decomposition_component('vm', 'network-out', host_thr).set_cpu_limit(cpu_limit)\
+                                            .set_memory_limit(memory_limit)\
+                                            .set_cpu_request(cpu_request)\
+                                            .set_memory_request(memory_request)\
+                                            .add_pvolumes({mount_path: vop})\
+                                            .after(decomposition_vm_network_in)
+
+    decomposition_vm_filesystem = decomposition_component('vm', 'filesystem', host_thr).set_cpu_limit(cpu_limit)\
+                                            .set_memory_limit(memory_limit)\
+                                            .set_cpu_request(cpu_request)\
+                                            .set_memory_request(memory_request)\
+                                            .add_pvolumes({mount_path: vop})\
+                                            .after(decomposition_vm_network_out)
+
+    decomposition_vm_cpu = decomposition_component('vm', 'cpu', host_thr).set_cpu_limit(cpu_limit)\
+                                            .set_memory_limit(memory_limit)\
+                                            .set_cpu_request(cpu_request)\
+                                            .set_memory_request(memory_request)\
+                                            .add_pvolumes({mount_path: vop})\
+                                            .after(decomposition_vm_filesystem)
+
+
+    decomposition_vm_memory = decomposition_component('vm', 'memory', host_thr).set_cpu_limit(cpu_limit)\
+                                            .set_memory_limit(memory_limit)\
+                                            .set_cpu_request(cpu_request)\
+                                            .set_memory_request(memory_request)\
+                                            .add_pvolumes({mount_path: vop})\
+                                            .after(decomposition_vm_cpu)
+
+    dsl.get_pipeline_conf().set_ttl_seconds_after_finished(20)
