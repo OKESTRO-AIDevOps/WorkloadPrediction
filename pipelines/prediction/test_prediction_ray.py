@@ -1,4 +1,3 @@
-###예측잡이 실행되는 메인파일
 import os
 import sys
 from configparser import ConfigParser
@@ -21,7 +20,6 @@ from prediction_ray_models import predict_autoreg
 from prediction_ray_models import bulk_index_by_ray
 
 
-#config setup
 if socket.gethostname() == 'bigdata-hdfs-spark-0-3':
     config = ConfigParser()
     config.read(project_path+'/../config.ini')
@@ -31,11 +29,9 @@ else:
     config.read('config.ini')
 
 
-#mariadb setup
 db_host, db_port, db_id, db_pw, db_schema = config.get('MARIADB', 'HOST'), config.get('MARIADB', 'PORT'),  config.get('MARIADB', 'USER'), config.get('MARIADB', 'PASSWORD'), config.get('MARIADB','DATABASE')
 db = pymysql.connect(host=db_host,port=int(db_port), user= db_id, passwd=db_pw, db= db_schema, charset='utf8')
 
-#es init
 es_host=config.get('ES','HOST')
 es_port=config.get('ES','PORT')
 es_id=config.get('ES','USER')
@@ -44,24 +40,12 @@ es_info = [es_host,es_port,es_id,es_pw]
 es = Elasticsearch(hosts=f"http://{es_id}:{es_pw}@{es_host}:{es_port}/", timeout= 100, http_compress=False)
 
 
-ray.init(num_cpus=2, dashboard_host ='0.0.0.0')
+ray.init(num_cpus=2, dashboard_host ='host')
 
 def retrieve_machine_to_predict():
-    """
-    예측할 머신들을 가져오는 함수 ex) vm, pod
-    :return:
-    """
     return ["vm"]
 
 def retrieve_model_to_predict(db):
-    """
-    예측할 모델을 가져오는 함수
-    metadata api 를 통해 구현
-
-    :param config: metadata 저장 config
-    :return:
-    model to predict : str
-    """
     sql = "SELECT * FROM T_ALGORITHM"
     df=pd.read_sql(sql,db)
     df = df[df['USG_AT']=='Y'][['PVDR_ID','USG_AT','ALGORITHM_NM']]
@@ -78,11 +62,6 @@ def retrieve_model_to_predict(db):
         return {'vm':'Prophet','pod':'Prophet'}
 
 def retrieve_selected_model(model_name):
-    """
-    정해진 모델에 따라 model 함수 반환
-    :param model_name:
-    :return:
-    """
     model = predict_prophet
     if model_name == 'Prophet':
         model = predict_prophet
@@ -94,38 +73,16 @@ def retrieve_selected_model(model_name):
 
 
 def retrieve_metrics_to_predict():
-    """
-    예측을 할 변수들을 가져오는 역할을 하는 함수
-    :return: list with variables to predict
-    """
-    # return {"vm": ["cpu","memory","network-in", "network-out", "diskio-write", "diskio-read"],
-    #         "pod": ["cpu", "memory"]}
-    #return {"vm": ["cpu", "memory"]}
     return {"vm":["cpu"],"pod":[]}
 
 def retrieve_df_from_csv(path):
-    """
-    예측에서 자제적으로 수행한 전처리 데이터를 가져오는 함수
-    :param spark_session: spark session 객체
-    :param path: csv 파일경로
-    :return: df with columns host_id, timestamp, avg(value)
-    """
     df = pd.read_csv(path)
     return df
 
 def retrieve_df_from_parquet():
-    """
-    전처리된 데이터를 가져오는 함수
-    #todo 추후 구현예정
-    :return:
-    """
     pass
 
 def change_df_column_names(df, metric):
-    """
-    change column name to host_id, timestamp, avg(value)
-    :return:
-    """
     if metric == 'cpu':
         df.rename(columns={'datetime':'timestamp', 'mean_cpu_usage':'avg(value)', 'host_name':'host_id'}, inplace=True)
     if metric == 'memory':
@@ -140,3 +97,46 @@ def change_df_column_names(df, metric):
         df.rename(columns={'datetime':'timestamp', 'mean_write_bytes':'avg(value)', 'host_name':'host_id'}, inplace=True)
 
     return df
+
+def main():
+    model_dict = retrieve_model_to_predict(db)
+    metric_dict = retrieve_metrics_to_predict()
+    print(f"model_dict: {model_dict} , metric_dict: {metric_dict} ")
+    metrics_to_predict = retrieve_metrics_to_predict()
+    for machine in retrieve_machine_to_predict():
+        model_selected_by_machine = model_dict[machine]
+        metrics_selected_by_machine = metric_dict[machine]
+        for metric in metrics_selected_by_machine:
+            start1 = time.time()
+            metric_to_read = metric.split("-")[0] if machine == 'vm' else 'pod'
+            df = retrieve_df_from_csv(f"path/your/csv/{metric_to_read}.csv")
+            print("df.shape:", df.shape)
+            df = change_df_column_names(df, metric)
+            hosts = np.unique(df['host_id'])
+            print("number hosts:", len(hosts))
+            put_dataset = ray.put(df)
+            model = retrieve_selected_model(model_selected_by_machine)
+            start2 = time.time()
+            end1 = time.time()
+            futures = ray.get([model.remote(idx, put_dataset, hosts, metric) for idx in range(len(hosts))])
+            end2 = time.time()
+            start3 =time.time()
+            es_index = f'aiplatform-metric-{machine}-prediction-{metric}-ray-test'
+            es.indices.delete(index=es_index, ignore=[400, 404])
+            es.indices.create(index=es_index, body={})
+            start4 = time.time()
+            put_futures = ray.put(futures)
+            ray.get([bulk_index_by_ray.remote(idx, put_futures, es_index, es_info) for idx in range(len(hosts))])
+            end4 =time.time()
+            start5 =time.time()
+            end5 = time.time()
+            end3 = time.time()
+            print(f"time to store:{end3-start3}")
+            print(f"model elapsed_time:{end2-start2}")
+            print(f"preprocessed elapsed_time:{end1-start1}")
+            print(f"pd concat elapsed_time:{end4-start4}")
+            print(f"bulk elapsed_time:{end5-start5}")
+
+
+if __name__ == '__main__':
+    main()
