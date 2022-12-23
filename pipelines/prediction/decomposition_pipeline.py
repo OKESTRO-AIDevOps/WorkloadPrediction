@@ -44,7 +44,6 @@ def decomposition_pipeline(cpu_request :str="4000m",
                         memory_limit : str="16000Mi",
                         host_thr : int=60
                         ):
-    # base image
     dsl.get_pipeline_conf().set_image_pull_secrets([kubernetes.client.V1LocalObjectReference(name="okestroaiops")])
     vop = dsl.PipelineVolume(pvc='croffle-pvc')    
     mount_path = '/symphony/'
@@ -100,3 +99,27 @@ def decomposition_pipeline(cpu_request :str="4000m",
                                             .after(decomposition_vm_cpu)
 
     dsl.get_pipeline_conf().set_ttl_seconds_after_finished(20)
+
+
+    
+
+kfp.compiler.Compiler().compile(
+    pipeline_func=decomposition_pipeline,
+    package_path='decomposition_pl.yaml'
+)
+
+client.create_recurring_run(
+    experiment_id = client.get_experiment(experiment_name="default").id,
+    job_name="decomposition",
+    description="version: croffle:decomposition_pvc",
+    cron_expression="0 0 13 * * *",
+    pipeline_package_path = "decomposition_pl.yaml",
+)
+
+
+client.upload_pipeline(
+    pipeline_package_path='decomposition_pl.yaml',
+    pipeline_name = "croffle-decomposition_pvc",
+    description = "version: croffle:decomposition"
+)
+
