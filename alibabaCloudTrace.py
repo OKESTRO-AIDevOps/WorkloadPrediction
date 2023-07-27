@@ -34,3 +34,19 @@ df['net'] = df[['net_in', 'net_out']].mean(axis=1)
 
 metricClass = ['cpu_util_percent', 'mem_util_percent', 'net']
 print(df[['datetime'] + metricClass])
+
+for i, metric in enumerate(metricClass):
+    series = TimeSeries.from_dataframe(df, 'datetime', metric)
+
+    train, val = series[:-288], series[-288:]
+
+    model = XGBModel(lags=2016)
+    model.fit(train)
+
+    prediction = model.predict(len(val))
+
+    peak = max(prediction.values())
+
+    optiSpec[specList[i]] = peak / 100 * instanceSpec[specList[i]]
+
+print(optiSpec)
